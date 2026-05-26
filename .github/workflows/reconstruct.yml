@@ -137,8 +137,12 @@ jobs:
             echo "No citation file changes to commit"
           else
             git commit -m "Add data citations for reconstruction ${{ github.run_id }}"
+            # actions/checkout@v4 leaves HEAD detached on a SHA; the rebase
+            # below then succeeds but `git push` fails with "not currently on
+            # a branch". Push HEAD explicitly at the target branch instead.
+            BRANCH="${{ github.ref_name }}"
             for i in 1 2 3; do
-              git pull --rebase origin "${{ github.ref_name }}" && git push && break || sleep $((i*5))
+              git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && break || sleep $((i*5))
             done
           fi
 
@@ -235,7 +239,11 @@ jobs:
             echo "No files under 100MB to commit"
           else
             git commit -m "Add reconstruction results for ${{ github.run_id }}"
+            # actions/checkout@v4 leaves HEAD detached on a SHA; the rebase
+            # below then succeeds but `git push` fails with "not currently on
+            # a branch". Push HEAD explicitly at the target branch instead.
+            BRANCH="${{ github.ref_name }}"
             for i in 1 2 3; do
-              git pull --rebase origin "${{ github.ref_name }}" && git push && break || sleep $((i*5))
+              git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && break || sleep $((i*5))
             done
           fi
