@@ -150,6 +150,25 @@ jobs:
             -exec cp {} ./static-viz/data/ \;
           cp images/*.png ./static-viz/images/ 2>/dev/null || true
 
+          # GitHub Pages doesn't auto-index directory URLs, so synthesize
+          # a data/index.html that lists everything in data/ — without it
+          # the "Download data" tile 404s.
+          {
+            echo '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            echo '<title>Reconstruction data — PReSto</title>'
+            echo '<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#1a1a1a}'
+            echo 'a{color:#2563eb}h1{font-size:1.5rem}ul{line-height:1.8}.size{color:#666;font-size:.85em}</style></head>'
+            echo '<body><h1>Reconstruction data</h1>'
+            echo '<p><a href="../">&larr; Back to reconstruction</a></p><ul>'
+            for f in ./static-viz/data/*; do
+              [ -f "$f" ] || continue
+              name=$(basename "$f")
+              size=$(du -h "$f" | cut -f1)
+              echo "  <li><a href=\"${name}\">${name}</a> <span class=\"size\">(${size})</span></li>"
+            done
+            echo '</ul></body></html>'
+          } > ./static-viz/data/index.html
+
           # Tile UI matching the rest of the PReSto ecosystem.
           FIG_TILE=""
           if ls ./static-viz/figures/*.png >/dev/null 2>&1; then

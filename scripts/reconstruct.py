@@ -44,23 +44,30 @@ def reconstruct(proxy_matrix: Path, config_path: Path, out_csv: Path) -> None:
     df = pd.read_csv(proxy_matrix)
     df = df[(df["year"] >= year_start) & (df["year"] <= year_end)].copy()
 
-    # Per-year proxy stats. Centre each proxy on its own mean so units
-    # roughly cancel before averaging (the proxies in Pages2k have wildly
-    # different units; a naive mean would be dominated by the largest).
+    # Z-score each proxy over its valid period so different-unit records
+    # (tree-ring widths in mm, δ¹⁸O in ‰, varve counts, etc.) contribute
+    # equally to the composite. Without this the cross-proxy std for the
+    # uncertainty band is dominated by whichever record has the largest
+    # raw units, producing a band so wide the mean line looks flat.
     proxy_cols = [c for c in df.columns if c != "year"]
-    centred = df[proxy_cols] - df[proxy_cols].mean(axis=0)
+    proxies = df[proxy_cols]
+    z = (proxies - proxies.mean(axis=0)) / proxies.std(axis=0).replace(0, np.nan)
 
-    n_valid = centred.notna().sum(axis=1)
-    mean_   = centred.mean(axis=1, skipna=True)
-    std_    = centred.std(axis=1, skipna=True)
+    n_valid = z.notna().sum(axis=1)
+    mean_   = z.mean(axis=1, skipna=True)
+    # SEM (std of the mean) is the right uncertainty for a composite of
+    # ~independent z-scored records — not the per-year cross-proxy std,
+    # which is the *spread* of the input rather than the precision of
+    # the average.
+    sem_    = z.std(axis=1, skipna=True) / np.sqrt(n_valid.where(n_valid > 0))
 
     # Drop years that don't meet the per-year minimum proxy count.
     keep = n_valid >= min_n
     out = pd.DataFrame({
         "year":      df["year"][keep].to_numpy(),
         "mean":      mean_[keep].to_numpy(),
-        "lo_95":     (mean_ - 1.96 * std_)[keep].to_numpy(),
-        "hi_95":     (mean_ + 1.96 * std_)[keep].to_numpy(),
+        "lo_95":     (mean_ - 1.96 * sem_)[keep].to_numpy(),
+        "hi_95":     (mean_ + 1.96 * sem_)[keep].to_numpy(),
         "n_proxies": n_valid[keep].to_numpy(),
     })
 
